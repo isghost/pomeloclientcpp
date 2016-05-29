@@ -234,3 +234,14 @@ _Pvt_Extensions
 
 # FAKE - F# Make
 .fake/
+
+# platform proj and cocos2d
+cocos2d
+proj.android
+proj.android-studio
+proj.ios_mac
+proj.linux
+proj.win8.1-universal
+proj.win10
+proj.win32
+Debug.win32
