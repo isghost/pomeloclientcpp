@@ -9,7 +9,6 @@ using namespace cocos2d::ui;
 
 #define flag ((void *)0x11)
 
-int HelloWorld::port = 0;
 
 Scene* HelloWorld::createScene()
 {
@@ -18,6 +17,7 @@ Scene* HelloWorld::createScene()
     
     // 'layer' is an autorelease object
     auto layer = HelloWorld::create();
+	layer->scheduleUpdate();
 
     // add layer as a child to scene
     scene->addChild(layer);
@@ -106,15 +106,22 @@ bool HelloWorld::init()
 		CCLOG("name = %s, room = %s", name, roomId);
 		auto scene = ChatRoom::createScene(port, name, roomId);
 		Director::getInstance()->replaceScene(scene);
+		pomeloClient->destroy();
 	});
 	this->addChild(loginBtn, 11);
 	// pomelo init
-	pc_client_config_t config = PC_CLIENT_CONFIG_DEFAULT;
-	pc_lib_init(NULL, NULL, NULL, NULL);
-	client = (pc_client_t*)malloc(pc_client_size());
-	pc_client_init(client, (void*)0x11, &config);
-	handler_id = pc_client_add_ev_handler(client, event_cb, flag, NULL);
-	pc_client_connect(client, "192.168.0.14", 3014, NULL);
+	PomeloClient::initLib(NULL, NULL, NULL, NULL);
+	pomeloClient = PomeloClient::createClient();
+	pomeloClient->registerEventCb(PC_EV_CONNECTED_NAME, [=](const char *msg){
+		pomeloClient->requestWithTimeout("gate.gateHandler.queryEntry", "{\"username\": \"test\",\"uid\":\"1\"}", (void *)0x14, 2, [=](const char *msg){
+			CCLOG("resp %s = :", msg);
+			using rapidjson::Document;
+			Document doc;
+			doc.Parse<0>(msg);
+			port = doc["port"].GetInt();
+		});
+	});
+	pomeloClient->connect("192.168.0.14", 3014, NULL);
 
     return true;
 }
@@ -129,24 +136,6 @@ void HelloWorld::menuCloseCallback(Ref* pSender)
 #endif
 }
 
-void HelloWorld::request_cb(const pc_request_t* req, int rc, const char* resp)
-{
-	printf("%s ", resp);
-	using rapidjson::Document;
-	Document doc;
-	doc.Parse<0>(resp);
-	port = doc["port"].GetInt();
-	auto client = pc_request_client(req);
-	pc_client_disconnect(client);
-	pc_client_cleanup(client);
-	CCLOG("port = %d", port);
-}
-
-void HelloWorld::event_cb(pc_client_t* client, int ev_type, void* ex_data, const char* arg1, const char* arg2){
-	if (ex_data == flag && ev_type == PC_EV_CONNECTED){
-		//简单处理，写死获取connect地址
-		pc_request_with_timeout(client, "gate.gateHandler.queryEntry", "{\"username\": \"test\",\"uid\":\"1\"}", (void *)0x14, 2, request_cb);
-	}
-	printf("event %d =", ev_type);
-
+void HelloWorld::update(float delta){
+	pomeloClient->update(delta);
 }
